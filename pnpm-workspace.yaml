@@ -3,6 +3,8 @@ packages:
   - packages/*
 allowBuilds:
   '@nestjs/core': false
+  '@parcel/watcher': true
+  '@swc/core': true
   esbuild: true
   sharp: false
   unrs-resolver: false
