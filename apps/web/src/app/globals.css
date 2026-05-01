@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+:root {
+  --color-neutral-0: 255 255 255;
+  --color-neutral-900: 15 23 42;
+
+  --color-primary-500: 59 130 246;
+  --color-success-500: 34 197 94;
+  --color-warning-500: 245 158 11;
+  --color-danger-500: 239 68 68;
+
+  --color-bg: var(--color-neutral-0);
+  --color-fg: var(--color-neutral-900);
+
+  --color-muted: 248 250 252;
+  --color-muted-fg: 100 116 139;
+
+  --color-primary: var(--color-primary-500);
+  --color-success: var(--color-success-500);
+  --color-warning: var(--color-warning-500);
+  --color-danger: var(--color-danger-500);
+
+  --color-primary-fg: 255 255 255;
+  --color-danger-fg: 255 255 255;
+
+  --color-border: 226 232 240;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.08);
+}
+
+.dark {
+  --color-bg: 2 6 23;
+  --color-fg: 241 245 249;
+
+  --color-muted: 15 23 42;
+  --color-muted-fg: 148 163 184;
+
+  --color-primary: 96 165 250;
+  --color-primary-fg: 2 6 23;
+
+  --color-danger: 248 113 113;
+  --color-danger-fg: 2 6 23;
+
+  --color-border: 30 41 59;
+}
+
+body {
+  background: rgb(var(--color-bg));
+  color: rgb(var(--color-fg));
+  font-feature-settings:
+    "rlig" 1,
+    "calt" 1;
+}
+
+* {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+@layer utilities {
+  .bg-base {
+    background-color: rgb(var(--color-bg));
+  }
+
+  .text-base {
+    color: rgb(var(--color-fg));
+  }
+
+  .bg-muted {
+    background-color: rgb(var(--color-muted));
+  }
+
+  .text-muted {
+    color: rgb(var(--color-muted-fg));
+  }
+
+  .bg-primary {
+    background-color: rgb(var(--color-primary));
+  }
+
+  .text-primary {
+    color: rgb(var(--color-primary));
+  }
+
+  .border-base {
+    border-color: rgb(var(--color-border));
+  }
+
+  .rounded-base {
+    border-radius: var(--radius-md);
+  }
+
+  .shadow-base {
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+[data-brand="default"] {
+  --color-primary: 59 130 246;
+}
+
+[data-brand="green"] {
+  --color-primary: 34 197 94;
+}
+
+[data-brand="purple"] {
+  --color-primary: 168 85 247;
+}
