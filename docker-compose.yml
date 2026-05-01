@@ -1,0 +1,86 @@
+version: "3.9"
+
+services:
+  # =========================
+  # Database (Postgres)
+  # =========================
+  db:
+    image: postgres:16-alpine
+    container_name: db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+  # =========================
+  # API (NestJS)
+  # =========================
+  api:
+    container_name: api
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://postgres:postgres@db:5432/app
+      PORT: 3001
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "3001:3001"
+    networks:
+      - app_network
+
+  # =========================
+  # Web (Next.js)
+  # =========================
+  web:
+    container_name: web
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://api:3001
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://api:3001
+    restart: always
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    networks:
+      - app_network
+
+# =========================
+# Volumes
+# =========================
+volumes:
+  db_data:
+
+# =========================
+# Network
+# =========================
+networks:
+  app_network:
+    driver: bridge

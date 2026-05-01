@@ -6,9 +6,16 @@ import {
   Patch,
   Param,
   Delete,
+  ParseIntPipe,
 } from '@nestjs/common';
 
-import type { CreateLinkDto, UpdateLinkDto } from '@repo/api';
+import {
+  CreateLinkSchema,
+  UpdateLinkSchema,
+  type CreateLink,
+  type UpdateLink,
+} from '@repo/schemas';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
 
 import { LinksService } from './links.service';
 
@@ -17,8 +24,11 @@ export class LinksController {
   constructor(private readonly linksService: LinksService) {}
 
   @Post()
-  create(@Body() createLinkDto: CreateLinkDto) {
-    return this.linksService.create(createLinkDto);
+  create(
+    @Body(new ZodValidationPipe(CreateLinkSchema))
+    body: CreateLink,
+  ) {
+    return this.linksService.create(body);
   }
 
   @Get()
@@ -27,17 +37,20 @@ export class LinksController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.linksService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.linksService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateLinkDto: UpdateLinkDto) {
-    return this.linksService.update(+id, updateLinkDto);
+  update(@Param('id', ParseIntPipe) id: number,
+    @Body(new ZodValidationPipe(UpdateLinkSchema))
+    body: UpdateLink,
+  ) {
+    return this.linksService.update(id, body);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.linksService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.linksService.remove(id);
   }
 }

@@ -1,5 +1,5 @@
 {
-  "extends": "@repo/typescript-config/nextjs",
+  "extends": "../../packages/typescript-config/nextjs.json",
   "compilerOptions": {
     "strictNullChecks": true,
     "lib": ["dom", "dom.iterable", "esnext"],

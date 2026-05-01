@@ -1,51 +1,43 @@
-import { Injectable } from '@nestjs/common';
-
-import { Link, CreateLinkDto, UpdateLinkDto } from '@repo/api';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import type { CreateLink, UpdateLink } from '@repo/schemas';
 import * as escapeHtml from 'escape-html';
 
 @Injectable()
 export class LinksService {
-  private readonly _links: Link[] = [
-    {
-      id: 0,
-      title: 'Installation',
-      url: 'https://turborepo.dev/docs/getting-started/installation',
-      description: 'Get started with Turborepo in a few moments using',
-    },
-    {
-      id: 1,
-      title: 'Crafting',
-      url: 'https://turborepo.dev/docs/crafting-your-repository',
-      description: 'Architecting a monorepo is a careful process.',
-    },
-    {
-      id: 2,
-      title: 'Add Repositories',
-      url: 'https://turborepo.dev/docs/getting-started/add-to-existing-repository',
-      description:
-        'Turborepo can be incrementally adopted in any repository, single or multi-package, to speed up the developer and CI workflows of the repository.',
-    },
-  ];
+  private readonly links: (CreateLink & { id: number })[] = [];
+  private idSeq = 1;
 
-  create(createLinkDto: CreateLinkDto) {
-    const safeTitle = escapeHtml(createLinkDto.title ?? '');
-    return `TODO: This action should add a new link '${safeTitle}'`;
+  create(input: CreateLink) {
+    const safeTitle = escapeHtml(input.title ?? '');
+    const link = {
+      id: this.idSeq++,
+      ...input,
+      title: safeTitle,
+    };
+    this.links.push(link);
+    return link;
   }
 
   findAll() {
-    return this._links;
+    return this.links;
   }
 
   findOne(id: number) {
-    return `TODO: This action should return a Link with id #${id}`;
+    const link = this.links.find((l) => l.id === id);
+    if (!link) throw new NotFoundException('Link not found');
+    return link;
   }
 
-  update(id: number, updateLinkDto: UpdateLinkDto) {
-    const safeTitle = escapeHtml(updateLinkDto.title ?? '');
-    return `TODO: This action should update a #${id} link ${safeTitle}`;
+  update(id: number, input: UpdateLink) {
+   
+    const index = this.links.findIndex((l) => l.id === id);
+    return index
   }
 
   remove(id: number) {
-    return `TODO: This action should remove a #${id} link`;
+    const index = this.links.findIndex((l) => l.id === id);
+    if (index === -1) throw new NotFoundException('Link not found');
+    this.links.splice(index, 1);
+    return true;
   }
 }

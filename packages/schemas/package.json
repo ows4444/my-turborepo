@@ -1,15 +1,14 @@
 {
-  "name": "@repo/api",
+  "name": "@repo/schemas",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
   "scripts": {
-    "dev": "pnpm build --watch",
     "build": "tsc -b -v",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\""
+    "lint": "eslint src/**/*.ts"
   },
-  "main": "./dist/entry.js",
-  "types": "./dist/entry.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "./dist/**"
   ],
@@ -18,16 +17,12 @@
   },
   "exports": {
     ".": {
-      "import": "./dist/entry.js",
-      "require": "./dist/entry.js"
-    },
-    "./*": {
-      "import": "./dist/*.js",
-      "require": "./dist/*.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
     }
   },
   "dependencies": {
-    "@nestjs/mapped-types": "^2.1.1"
+    "zod": "^4.4.1"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
