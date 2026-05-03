@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { loadEnv } from "./load";
 
 export const apiEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]),
@@ -15,17 +16,20 @@ export const apiEnvSchema = z.object({
   COOKIE_SECRET: z.string().min(1, "COOKIE_SECRET is required"),
 
   REDIS_URL: z.string().url("REDIS_URL must be a valid URL"),
+
+  ACCESS_TOKEN_SECRET: z.string().min(1, "ACCESS_TOKEN_SECRET is required"),
 });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema> & {
   isProd: boolean;
 };
-
+let x = 0;
 export const getApiEnv = (() => {
   let cached: ApiEnv | null = null;
 
   return (): ApiEnv => {
     if (!cached) {
+      loadEnv();
       const result = apiEnvSchema.safeParse(process.env);
 
       if (!result.success) {
@@ -51,6 +55,9 @@ export const getApiEnv = (() => {
 
               case "REDIS_URL":
                 return "REDIS_URL must be a valid URL (example: redis://user:pass@host:6379)";
+
+              case "ACCESS_TOKEN_SECRET":
+                return "ACCESS_TOKEN_SECRET is required (example: 0123456789ABCDE)";
 
               default:
                 return `${field}: ${issue.message}`;

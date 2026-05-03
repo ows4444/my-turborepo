@@ -1,28 +1,17 @@
-import { ValidationPipe } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { NestFactory } from "@nestjs/core";
-import cookieParser from "cookie-parser";
+import { NestFactory } from '@nestjs/core';
+import { getApiEnv } from '@repo/env';
+import cookieParser from 'cookie-parser';
 
-import { AppModule } from "./app.module";
+import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const config = app.get(ConfigService);
 
-  app.use(cookieParser(process.env.COOKIE_SECRET));
+  const env = getApiEnv();
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
-  );
+  app.use(cookieParser(env.COOKIE_SECRET));
 
-  await app.listen(config.getOrThrow<number>("app.port"));
+  await app.listen(env.PORT);
 }
 
 void bootstrap();

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { db, usersTable } from '@repo/db';
+import { db, users } from '@repo/db';
+import { getApiEnv } from '@repo/env';
 import { eq } from 'drizzle-orm';
 
 type User = {
@@ -11,31 +12,31 @@ type User = {
 @Injectable()
 export class UsersService {
   async findByEmail(email: string): Promise<User | null> {
-    const result = await db
+    const [result] = await db(getApiEnv().DATABASE_URL)
       .select()
-      .from(usersTable)
-      .where(eq(usersTable.email, email))
+      .from(users)
+      .where(eq(users.email, email))
       .limit(1);
 
-    if (!result[0]) return null;
+    if (!result) return null;
 
-    return this.map(result[0]);
+    return this.map(result);
   }
 
   async findById(id: string): Promise<User | null> {
-    const result = await db
+    const [result] = await db(getApiEnv().DATABASE_URL)
       .select()
-      .from(usersTable)
-      .where(eq(usersTable.id, id))
+      .from(users)
+      .where(eq(users.id, id))
       .limit(1);
 
-    if (!result[0]) return null;
+    if (!result) return null;
 
-    return this.map(result[0]);
+    return this.map(result);
   }
 
   async create(user: User): Promise<User> {
-    await db.insert(usersTable).values({
+    await db(getApiEnv().DATABASE_URL).insert(users).values({
       id: user.id,
       email: user.email,
       passwordHash: user.passwordHash,
@@ -44,7 +45,7 @@ export class UsersService {
     return user;
   }
 
-  private map(row: typeof usersTable.$inferSelect): User {
+  private map(row: typeof users.$inferSelect): User {
     return {
       id: row.id,
       email: row.email,

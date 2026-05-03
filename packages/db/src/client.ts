@@ -1,13 +1,10 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import pg from 'pg';
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 
 let pool: pg.Pool | null = null;
 
-function getPool() {
+function getPool(url: string) {
   if (!pool) {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error('DATABASE_URL is required');
-
     pool = new pg.Pool({
       connectionString: url,
     });
@@ -16,7 +13,7 @@ function getPool() {
   return pool;
 }
 
-export const db = drizzle(getPool());
+export const db = (url: string) => drizzle(getPool(url));
 
 export const closeDb = async () => {
   if (pool) {

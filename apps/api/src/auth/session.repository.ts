@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { getApiEnv } from '@repo/env';
 import { getRedis } from '@repo/redis';
 import { Session } from './entities/session.entity';
 
@@ -6,7 +7,7 @@ const PREFIX = 'session';
 
 @Injectable()
 export class SessionRepository {
-  private redis = getRedis();
+  private redis = getRedis(getApiEnv().REDIS_URL);
 
   private key(jti: string) {
     return `${PREFIX}:${jti}`;

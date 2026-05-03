@@ -1,14 +1,14 @@
 import { relations } from "drizzle-orm";
-import { usersTable } from "./user";
 import { sessions } from "./session";
+import { users } from "./user";
 
-export const usersRelations = relations(usersTable, ({ many }) => ({
+export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
-  user: one(usersTable, {
+  user: one(users, {
     fields: [sessions.userId],
-    references: [usersTable.id],
+    references: [users.id],
   }),
 }));

@@ -1,25 +1,26 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { PassportStrategy } from "@nestjs/passport";
-import { ExtractJwt, Strategy } from "passport-jwt";
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { getApiEnv } from '@repo/env';
+import { ExtractJwt, Strategy } from 'passport-jwt';
 
-import { JwtPayload } from "./types/jwt-payload";
+import { JwtPayload } from './types/jwt-payload';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private readonly config: ConfigService) {
+  constructor() {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: config.getOrThrow<string>("auth.accessTokenSecret"),
+      secretOrKey: getApiEnv().ACCESS_TOKEN_SECRET,
     });
   }
 
   validate(payload: JwtPayload): { userId: string; deviceId?: string } {
     if (!payload?.sub) {
-      throw new UnauthorizedException("Invalid JWT payload");
+      throw new UnauthorizedException('Invalid JWT payload');
     }
 
-    if (!payload.deviceId) throw new UnauthorizedException("Invalid JWT payload");
+    if (!payload.deviceId)
+      throw new UnauthorizedException('Invalid JWT payload');
 
     return {
       userId: payload.sub,

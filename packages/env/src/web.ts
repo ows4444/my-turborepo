@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { loadEnv } from "./load";
 
 export const webEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]),
@@ -17,6 +18,7 @@ export const getWebEnv = (() => {
 
   return () => {
     if (!cached) {
+      loadEnv();
       const result = webEnvSchema.safeParse(process.env);
 
       if (!result.success) {

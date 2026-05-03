@@ -8,6 +8,6 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "ioredis": "^5.4.1"
+    "ioredis": "^5.10.1"
   }
 }
