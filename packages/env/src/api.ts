@@ -2,55 +2,76 @@ import { z } from "zod";
 
 export const apiEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]),
-  DATABASE_URL: z.string(),
-  PORT: z.coerce.number(),
-  CSRF_SECRET: z.string(),
+
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+
+  PORT: z.coerce
+    .number()
+    .int()
+    .positive("PORT must be a valid positive number"),
+
+  CSRF_SECRET: z.string().min(1, "CSRF_SECRET is required"),
+
+  COOKIE_SECRET: z.string().min(1, "COOKIE_SECRET is required"),
+
+  REDIS_URL: z.string().url("REDIS_URL must be a valid URL"),
 });
 
-export type ApiEnv = z.infer<typeof apiEnvSchema>;
+export type ApiEnv = z.infer<typeof apiEnvSchema> & {
+  isProd: boolean;
+};
 
-export const getServerEnv = (() => {
+export const getApiEnv = (() => {
   let cached: ApiEnv | null = null;
 
-  return () => {
-    if (!cached)
-      if (!cached) {
-        const result = apiEnvSchema.safeParse(process.env);
+  return (): ApiEnv => {
+    if (!cached) {
+      const result = apiEnvSchema.safeParse(process.env);
 
-        if (!result.success) {
-          const formatted = result.error.issues
-            .map((issue) => {
-              const field = issue.path.join(".");
+      if (!result.success) {
+        const formatted = result.error.issues
+          .map((issue) => {
+            const field = issue.path.join(".");
 
-              if (field === "NODE_ENV") {
-                return `NODE_ENV must be one of: development, production, test`;
-              }
+            switch (field) {
+              case "NODE_ENV":
+                return "NODE_ENV must be one of: development, production, test";
 
-              if (field === "DATABASE_URL") {
-                return `DATABASE_URL is required (example: postgres://user:pass@host:5432/db)`;
-              }
+              case "DATABASE_URL":
+                return "DATABASE_URL is required (example: postgres://user:pass@host:5432/db)";
 
-              if (field === "PORT") {
-                return `PORT must be a valid number (example: 3001)`;
-              }
+              case "PORT":
+                return "PORT must be a valid number (example: 3001)";
 
-              if (field === "CSRF_SECRET") {
-                return `CSRF_SECRET is required (example: 0123456789ABCDE)`;
-              }
+              case "CSRF_SECRET":
+                return "CSRF_SECRET is required (example: 0123456789ABCDE)";
 
-              return `${field}: ${issue.message}`;
-            })
-            .join("\n");
+              case "COOKIE_SECRET":
+                return "COOKIE_SECRET is required";
 
-          console.error("\n❌ Invalid environment variables:\n");
-          console.error(formatted);
-          console.error("\n👉 Check your .env file\n");
+              case "REDIS_URL":
+                return "REDIS_URL must be a valid URL (example: redis://user:pass@host:6379)";
 
-          process.exit(1);
-        }
+              default:
+                return `${field}: ${issue.message}`;
+            }
+          })
+          .join("\n");
 
-        cached = result.data;
+        console.error("\n❌ Invalid environment variables:\n");
+        console.error(formatted);
+        console.error("\n👉 Check your .env file\n");
+
+        process.exit(1);
       }
+
+      const data = result.data;
+
+      cached = {
+        ...data,
+        isProd: data.NODE_ENV === "production",
+      };
+    }
 
     return cached;
   };

@@ -5,7 +5,8 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc -b -v",
-    "lint": "eslint src/**/*.ts"
+    "lint": "eslint src/**/*.ts",
+    "clean": "rm -rf dist"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -27,7 +28,7 @@
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@types/node": "^22.10.7",
+    "@types/node": "^22.19.3",
     "ts-loader": "^9.4.3",
     "ts-node": "^10.9.2",
     "typescript": "5.5.4"

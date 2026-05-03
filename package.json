@@ -2,6 +2,9 @@
   "name": "my-turborepo",
   "private": true,
   "scripts": {
+    "db:generate": "drizzle-kit generate --config=packages/db/drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config=packages/db/drizzle.config.ts",
+    "db:push": "drizzle-kit push --config=packages/db/drizzle.config.ts",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",

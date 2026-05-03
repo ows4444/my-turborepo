@@ -2,13 +2,14 @@
   "name": "@repo/db",
   "version": "0.0.0",
   "private": true,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b -v",
+    "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -16,6 +17,7 @@
     "pg": "^8.20.0"
   },
   "devDependencies": {
+    "@types/node": "^22.19.3",
     "@types/pg": "^8.20.0"
   }
 }

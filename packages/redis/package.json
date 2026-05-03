@@ -1,0 +1,13 @@
+{
+  "name": "@repo/redis",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.1"
+  }
+}

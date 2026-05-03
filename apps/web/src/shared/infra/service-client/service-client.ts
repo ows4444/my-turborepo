@@ -42,9 +42,9 @@ export async function serviceClient<T>(
         ...(options.headers ?? {}),
         ...(traceId ? { "x-request-id": traceId } : {}),
         ...(csrf ? { "x-csrf-token": csrf } : {}),
-        ...(cookie ? { cookie } : {}),
+        ...(cookie ? { cookie: cookie } : {}),
       },
-      signal: AbortSignal.timeout(5000), // 5 seconds timeout
+      signal: AbortSignal.timeout(10000), // 10 seconds timeout
     });
 
     const contentType = res.headers.get("content-type") ?? "";

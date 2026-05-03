@@ -1,12 +1,16 @@
 {
   "folders": [
     {
-      "name": "api",
-      "path": "apps/api",
+      "name": "root",
+      "path": "./",
     },
     {
       "name": "web",
       "path": "apps/web",
+    },
+    {
+      "name": "api",
+      "path": "apps/api",
     },
     {
       "name": "packages",
@@ -16,7 +20,7 @@
   "settings": {
     "js/ts.preferences.includePackageJsonAutoImports": "auto",
     "eslint.workingDirectories": [{ "mode": "auto" }],
-    "terminal.integrated.cwd": "${workspaceFolder:api}",
+    "terminal.integrated.cwd": "${workspaceFolder}",
     "files.exclude": {
       "**/node_modules": true,
       "**/.turbo": true,
@@ -25,6 +29,10 @@
       "**/coverage": true,
       "**/.pnpm-store": true,
       "**/.git": true,
+      "**/tsconfig.tsbuildinfo": true,
+      "**/next-env.d.ts": true,
+      "**/tsconfig.json": true,
+      "**/tsconfig.build.json": true,
     },
     "search.exclude": {
       "**/node_modules": true,
@@ -32,6 +40,8 @@
       "**/.next": true,
       "**/dist": true,
       "**/coverage": true,
+      "**/tsconfig.tsbuildinfo": true,
+      "**/next-env.d.ts": true,
     },
   },
   "launch": {

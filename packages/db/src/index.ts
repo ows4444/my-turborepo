@@ -1,2 +1,2 @@
 export * from './client';
-export * from './schema/link';
+export * from './schema';

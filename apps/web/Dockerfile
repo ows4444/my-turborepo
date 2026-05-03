@@ -17,6 +17,8 @@ FROM base AS builder
 
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+RUN pnpm install --offline --frozen-lockfile
 RUN node -e "require('@repo/env').parseClientEnv()"
 
 COPY --from=prepare /app/out/json/ .

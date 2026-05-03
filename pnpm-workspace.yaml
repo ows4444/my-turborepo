@@ -5,6 +5,7 @@ allowBuilds:
   '@nestjs/core': false
   '@parcel/watcher': true
   '@swc/core': true
+  bcrypt: true
   esbuild: true
   sharp: false
   unrs-resolver: false
