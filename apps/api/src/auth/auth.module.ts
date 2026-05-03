@@ -9,10 +9,11 @@ import { JwtStrategy } from './jwt.strategy';
 import { SessionRepository } from './session.repository';
 
 import { UsersService } from '../users/users.service';
+import { DeviceController } from './device/device.controller';
 
 @Module({
   imports: [ConfigModule, JwtModule],
-  controllers: [AuthController],
+  controllers: [AuthController, DeviceController],
   providers: [
     AuthService,
     JwtStrategy,

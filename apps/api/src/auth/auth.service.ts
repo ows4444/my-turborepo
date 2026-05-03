@@ -1,16 +1,17 @@
-import { createHash } from 'crypto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { getApiEnv } from '@repo/env';
 import bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 import ms, { type StringValue } from 'ms';
 
 import { randomUUID as uuid } from 'crypto';
 
 import { Session } from './entities/session.entity';
 
+import { LoginInput, RegisterInput } from '@repo/schemas';
 import { UsersService } from '../users/users.service';
 import { SessionRepository } from './session.repository';
-import { LoginInput, RegisterInput } from '@repo/schemas';
 
 type DeviceMeta = {
   userAgent?: string;
@@ -26,9 +27,33 @@ export class AuthService {
     private readonly sessionRepo: SessionRepository,
   ) {
     this.config = {
-      refreshTokenSecret: 'asd',
-      refreshTokenTtl: '2h',
+      refreshTokenSecret: getApiEnv().REFRESH_TOKEN_SECRET,
+      refreshTokenTtl: getApiEnv().REFRESH_TOKEN_TTL as StringValue,
     };
+  }
+
+  private async signAccessToken(userId: string, deviceId: string, jti: string) {
+    return this.jwtService.signAsync(
+      { sub: userId, deviceId, jti },
+      {
+        secret: getApiEnv().ACCESS_TOKEN_SECRET,
+        expiresIn: getApiEnv().ACCESS_TOKEN_TTL as StringValue,
+      },
+    );
+  }
+
+  private async signRefreshToken(
+    userId: string,
+    deviceId: string,
+    jti: string,
+  ) {
+    return this.jwtService.signAsync(
+      { sub: userId, deviceId, jti },
+      {
+        secret: this.config.refreshTokenSecret,
+        expiresIn: this.config.refreshTokenTtl,
+      },
+    );
   }
 
   async register(
@@ -54,53 +79,21 @@ export class AuthService {
     return this.createSession(user.id, deviceId, meta);
   }
 
-  private signAccessToken(userId: string, deviceId: string, jti: string) {
-    return this.jwtService.signAsync({
-      sub: userId,
-      deviceId,
-      jti,
-    });
-  }
+  async getUserDevices(userId: string) {
+    const jtIs = await this.sessionRepo.getUserSessionIds(userId);
 
-  private async signRefreshToken(userId: string, deviceId: string) {
-    const jti = uuid();
-
-    const token = await this.jwtService.signAsync(
-      {
-        sub: userId,
-        deviceId,
-        jti,
-      },
-      {
-        secret: this.config.refreshTokenSecret,
-        expiresIn: this.config.refreshTokenTtl,
-      },
+    const sessions = await Promise.all(
+      jtIs.map((jti) => this.sessionRepo.find(jti)),
     );
 
-    return { token, jti };
-  }
-
-  getUserDevices(userId: string) {
-    const map = new Map<string, Session[]>();
-
-    return Array.from(map.entries())
-      .map(([deviceId, sessions]) => {
-        const latest = sessions
-          .slice()
-          .sort((a, b) => b.lastUsedAt.getTime() - a.lastUsedAt.getTime())[0];
-
-        if (!latest) return null;
-
-        return {
-          deviceId,
-          deviceName: latest.deviceName,
-          userAgent: latest.userAgent,
-          ip: latest.ip,
-          lastUsedAt: latest.lastUsedAt,
-          compromised: sessions.some((s) => s.compromised),
-        };
-      })
-      .filter(Boolean);
+    return sessions
+      .filter((s): s is NonNullable<typeof s> => !!s)
+      .map((s) => ({
+        deviceId: s.deviceId,
+        userAgent: s.userAgent,
+        ip: s.ip,
+        lastUsedAt: s.lastUsedAt,
+      }));
   }
 
   async login(
@@ -111,7 +104,8 @@ export class AuthService {
       ip?: string;
     },
   ) {
-    const user = await this.usersService.findByEmail(dto.email);
+    const email = dto.identifier;
+    const user = await this.usersService.findByEmail(email);
 
     if (!user) throw new UnauthorizedException();
 
@@ -119,41 +113,13 @@ export class AuthService {
 
     if (!valid) throw new UnauthorizedException();
 
-    return this.createSession(user.id, deviceId, meta);
+    const tokens = await this.createSession(user.id, deviceId, meta);
+
+    return { user, tokens };
   }
 
   async revokeDevice(userId: string, deviceId: string) {
     await this.revokeSession(userId, deviceId);
-  }
-
-  private parseDeviceName(ua?: string): string {
-    if (!ua) return 'Unknown Device';
-
-    if (ua.includes('Chrome')) return 'Chrome Browser';
-
-    if (ua.includes('Firefox')) return 'Firefox Browser';
-
-    if (ua.includes('Safari')) return 'Safari Browser';
-
-    return 'Unknown Device';
-  }
-
-  private isHighRisk(session: Session, meta: DeviceMeta): boolean {
-    return this.calculateRisk(session, meta) >= 50;
-  }
-
-  private calculateRisk(session: Session, meta: DeviceMeta): number {
-    let score = 0;
-
-    if (session.ip && session.ip !== meta.ip) score += 40;
-
-    if (session.userAgent && session.userAgent !== meta.userAgent) score += 30;
-
-    const lastUsedDelta = Date.now() - session.lastUsedAt.getTime();
-
-    if (lastUsedDelta > 1000 * 60 * 60 * 24) score += 20; // idle 1 day
-
-    return score;
   }
 
   // ---------- SESSION ----------
@@ -164,35 +130,30 @@ export class AuthService {
   private async createSession(
     userId: string,
     deviceId: string,
-    meta?: { userAgent?: string; ip?: string },
+    meta?: DeviceMeta,
   ) {
-    const { token: refreshToken, jti } = await this.signRefreshToken(
-      userId,
-      deviceId,
-    );
+    const jti = uuid();
+
+    const refreshToken = await this.signRefreshToken(userId, deviceId, jti);
     const accessToken = await this.signAccessToken(userId, deviceId, jti);
-
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
-
-    const fingerprint = this.generateFingerprint(meta);
-
-    await this.revokeSession(userId, deviceId);
 
     const session: Session = {
       id: uuid(),
       userId,
       deviceId,
-      jti,
-      refreshTokenHash,
+
+      currentJti: jti,
+
+      refreshTokenHash: createHash('sha256').update(refreshToken).digest('hex'),
+
       userAgent: meta?.userAgent,
       ip: meta?.ip,
-      deviceName: this.parseDeviceName(meta?.userAgent),
-      fingerprint,
-      rotationCounter: 0,
+
       createdAt: new Date(),
-      maxExpiresAt: new Date(Date.now() + ms(this.config.refreshTokenTtl) * 10), // or config-driven
       lastUsedAt: new Date(),
+
       expiresAt: new Date(Date.now() + ms(this.config.refreshTokenTtl)),
+      maxExpiresAt: new Date(Date.now() + ms(this.config.refreshTokenTtl) * 7),
     };
 
     await this.sessionRepo.save(session);
@@ -207,6 +168,23 @@ export class AuthService {
 
   async logoutAll(userId: string) {
     await this.revokeSession(userId);
+  }
+
+  async getMe(userId: string) {
+    const user = await this.usersService.findById(userId);
+
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+
+    return {
+      data: {
+        user: {
+          id: user.id,
+          full_name: user.email, // adjust later
+        },
+      },
+    };
   }
 
   private async findValidSession(
@@ -229,82 +207,74 @@ export class AuthService {
     return session;
   }
 
-  private generateFingerprint(meta?: DeviceMeta) {
-    return createHash('sha256')
-      .update(`${meta?.userAgent ?? ''}|${meta?.ip ?? ''}`)
-      .digest('hex');
-  }
+  async refreshFromToken(token: string, deviceId: string) {
+    let payload: { sub: string; jti: string; deviceId: string };
 
-  async refreshFromToken(token: string, deviceId: string, meta: DeviceMeta) {
     try {
-      const payload = await this.jwtService.verifyAsync<{
-        sub: string;
-        deviceId?: string;
-        jti: string;
-      }>(token, {
+      payload = await this.jwtService.verifyAsync(token, {
         secret: this.config.refreshTokenSecret,
       });
-
-      const { sub: userId, jti, deviceId: tokenDeviceId } = payload;
-
-      const currentFingerprint = this.generateFingerprint(meta);
-
-      if (tokenDeviceId !== deviceId) {
-        throw new UnauthorizedException('Device mismatch');
-      }
-
-      const session = await this.findValidSession(userId, deviceId, jti);
-
-      if (!session) {
-        await this.revokeSession(userId);
-
-        throw new UnauthorizedException('Token reuse detected');
-      }
-
-      if (session.revokedAt) {
-        await this.revokeSession(userId);
-
-        throw new UnauthorizedException('Replay detected');
-      }
-
-      if (session.rotationCounter > 0) {
-        session.compromised = true;
-        await this.revokeSession(userId, deviceId);
-
-        throw new UnauthorizedException('Replay detected');
-      }
-
-      session.rotationCounter += 1;
-
-      session.lastUsedAt = new Date();
-      const nextExpiry = new Date(Date.now() + ms(this.config.refreshTokenTtl));
-
-      session.expiresAt =
-        nextExpiry > session.maxExpiresAt ? session.maxExpiresAt : nextExpiry;
-
-      if (this.isHighRisk(session, meta)) {
-        session.compromised = true;
-        await this.revokeSession(userId, deviceId);
-
-        throw new UnauthorizedException('High risk detected');
-      }
-
-      if (session.fingerprint !== currentFingerprint) {
-        session.compromised = true;
-        await this.revokeSession(userId, deviceId);
-
-        throw new UnauthorizedException('Fingerprint mismatch');
-      }
-
-      const valid = await bcrypt.compare(token, session.refreshTokenHash);
-
-      if (!valid) throw new UnauthorizedException();
-
-      session.revokedAt = new Date();
-
-      return this.createSession(userId, deviceId, meta);
     } catch {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+      throw new UnauthorizedException('Invalid refresh token');
     }
+
+    const { sub: userId, jti, deviceId: tokenDeviceId } = payload;
+
+    const session = await this.sessionRepo.find(jti);
+    if (!session) throw new UnauthorizedException();
+
+    if (session.revokedAt) throw new UnauthorizedException();
+
+    if (session.expiresAt < new Date()) {
+      await this.sessionRepo.revokeAll(userId);
+      throw new UnauthorizedException();
+    }
+
+    if (session.deviceId !== deviceId || tokenDeviceId !== deviceId) {
+      await this.sessionRepo.markCompromised(session);
+      await this.sessionRepo.revokeAll(userId);
+      throw new UnauthorizedException();
+    }
+
+    if (session.maxExpiresAt < new Date()) {
+      await this.sessionRepo.revokeAll(userId);
+      throw new UnauthorizedException();
+    }
+
+    if (session.currentJti !== jti) {
+      await this.sessionRepo.markCompromised(session);
+      await this.sessionRepo.revokeAll(userId);
+      throw new UnauthorizedException();
+    }
+
+    const hash = createHash('sha256').update(token).digest('hex');
+
+    if (hash !== session.refreshTokenHash) {
+      await this.sessionRepo.markCompromised(session);
+      await this.sessionRepo.revokeAll(userId);
+      throw new UnauthorizedException();
+    }
+
+    // 🔁 ROTATE
+    const newJti = uuid();
+
+    const newRefreshToken = await this.signRefreshToken(
+      userId,
+      deviceId,
+      newJti,
+    );
+    const newAccess = await this.signAccessToken(userId, deviceId, newJti);
+
+    await this.sessionRepo.rotate(session, {
+      newJti,
+      newRefreshTokenHash: createHash('sha256')
+        .update(newRefreshToken)
+        .digest('hex'),
+    });
+
+    return {
+      accessToken: newAccess,
+      refreshToken: newRefreshToken,
+    };
   }
 }

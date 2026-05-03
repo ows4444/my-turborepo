@@ -14,6 +14,7 @@ const schema = z.object({
   identifier: z.union([z.email(), z.string().regex(/^9715\d{8}$/)], {
     error: () => ({ message: "Must be a valid email or UAE phone number starting with 9715" }),
   }),
+  password: z.string().min(1),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -71,6 +72,21 @@ export default function LoginPage() {
             />
 
             {errors.identifier && <span className="text-danger text-xs">{errors.identifier.message}</span>}
+          </div>
+
+          {/* Password */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Password</label>
+
+            <input
+              {...register("password")}
+              className={`rounded-base border px-3 py-2 text-sm transition outline-none ${
+                errors.password ? "border-danger" : "border-base focus:border-primary"
+              }`}
+              placeholder="Enter your password"
+            />
+
+            {errors.password && <span className="text-danger text-xs">{errors.password.message}</span>}
           </div>
 
           {/* Submit */}

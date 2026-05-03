@@ -2,17 +2,22 @@ export type Session = {
   id: string;
   userId: string;
   deviceId: string;
-  jti: string;
+
+  currentJti: string;
+  previousJti?: string;
+
   refreshTokenHash: string;
+
   userAgent?: string;
-  deviceName: string;
   ip?: string;
-  lastUsedAt: Date;
-  createdAt: Date;
-  fingerprint: string;
+
   compromised?: boolean;
+
+  createdAt: Date;
+  lastUsedAt: Date;
+
   expiresAt: Date;
-  rotationCounter: number;
   maxExpiresAt: Date;
+
   revokedAt?: Date;
 };

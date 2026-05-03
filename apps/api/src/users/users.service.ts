@@ -9,10 +9,11 @@ type User = {
   passwordHash: string;
 };
 
+const database = db(getApiEnv().DATABASE_URL);
 @Injectable()
 export class UsersService {
   async findByEmail(email: string): Promise<User | null> {
-    const [result] = await db(getApiEnv().DATABASE_URL)
+    const [result] = await database
       .select()
       .from(users)
       .where(eq(users.email, email))
@@ -24,7 +25,7 @@ export class UsersService {
   }
 
   async findById(id: string): Promise<User | null> {
-    const [result] = await db(getApiEnv().DATABASE_URL)
+    const [result] = await database
       .select()
       .from(users)
       .where(eq(users.id, id))
@@ -36,7 +37,7 @@ export class UsersService {
   }
 
   async create(user: User): Promise<User> {
-    await db(getApiEnv().DATABASE_URL).insert(users).values({
+    await database.insert(users).values({
       id: user.id,
       email: user.email,
       passwordHash: user.passwordHash,

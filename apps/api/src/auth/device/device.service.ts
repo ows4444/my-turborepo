@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Request, Response } from 'express';
 
-import {getApiEnv} from "@repo/env"
+import { getApiEnv } from '@repo/env';
 
 import { randomUUID as uuid } from 'crypto';
 
@@ -15,9 +15,9 @@ export type DeviceMeta = {
 @Injectable()
 export class DeviceService {
   getOrCreateDeviceId(req: Request, res: Response): string {
-    let deviceId = String(req.signedCookies?.[DEVICE_COOKIE]);
+    let deviceId = req.signedCookies?.[DEVICE_COOKIE];
 
-    if (!deviceId) {
+    if (!deviceId || deviceId === 'undefined') {
       deviceId = uuid();
 
       res.cookie(DEVICE_COOKIE, deviceId, {
@@ -35,12 +35,15 @@ export class DeviceService {
 
   extractMeta(req: Request): DeviceMeta {
     return {
-      userAgent: req.headers['user-agent'],
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+      userAgent:
+        typeof req.headers['user-agent'] === 'string'
+          ? req.headers['user-agent'].slice(0, 512)
+          : undefined,
+
       ip:
-        (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-        req.socket.remoteAddress ||
-        req.ip,
+        typeof req.headers['x-forwarded-for'] === 'string'
+          ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
+          : req.ip,
     };
   }
 }

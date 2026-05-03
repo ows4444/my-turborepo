@@ -11,6 +11,7 @@ const loginSchema = z.object({
   identifier: z.union([z.email(), z.string().regex(/^9715\d{8}$/)], {
     error: () => ({ message: "Must be a valid email or UAE phone number starting with 9715" }),
   }),
+  password: z.string().min(1),
 });
 
 export const POST = createValidatedMutation(loginSchema, async (parsed) => {
@@ -21,6 +22,7 @@ export const POST = createValidatedMutation(loginSchema, async (parsed) => {
     body: JSON.stringify(parsed),
     headers: {
       "x-request-id": headerStore.get("x-request-id") ?? "",
+      "x-forwarded-for": headerStore.get("x-forwarded-for") ?? "",
     },
   });
 
@@ -40,7 +42,9 @@ export const POST = createValidatedMutation(loginSchema, async (parsed) => {
 
   if (cookies) {
     for (const cookie of cookies) {
-      res.headers.append("set-cookie", cookie);
+      if (cookie.startsWith("refresh_token=")) {
+        res.headers.append("set-cookie", cookie);
+      }
     }
   }
 

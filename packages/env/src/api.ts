@@ -18,12 +18,19 @@ export const apiEnvSchema = z.object({
   REDIS_URL: z.string().url("REDIS_URL must be a valid URL"),
 
   ACCESS_TOKEN_SECRET: z.string().min(1, "ACCESS_TOKEN_SECRET is required"),
+
+  ACCESS_TOKEN_TTL: z.string().min(1, "ACCESS_TOKEN_TTL is required"),
+
+  REFRESH_TOKEN_SECRET:z.string().min(1, "REFRESH_TOKEN_SECRET is required"),
+
+  REFRESH_TOKEN_TTL: z.string().min(1, "REFRESH_TOKEN_TTL is required"),
+
 });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema> & {
   isProd: boolean;
 };
-let x = 0;
+
 export const getApiEnv = (() => {
   let cached: ApiEnv | null = null;
 
@@ -59,6 +66,8 @@ export const getApiEnv = (() => {
               case "ACCESS_TOKEN_SECRET":
                 return "ACCESS_TOKEN_SECRET is required (example: 0123456789ABCDE)";
 
+                case "REFRESH_TOKEN_SECRET":
+                  return "REFRESH_TOKEN_SECRET is required (example: 0123456789ABCDE)";
               default:
                 return `${field}: ${issue.message}`;
             }

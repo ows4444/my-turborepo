@@ -31,8 +31,6 @@
       "**/.git": true,
       "**/tsconfig.tsbuildinfo": true,
       "**/next-env.d.ts": true,
-      "**/tsconfig.json": true,
-      "**/tsconfig.build.json": true,
     },
     "search.exclude": {
       "**/node_modules": true,
@@ -43,6 +41,41 @@
       "**/tsconfig.tsbuildinfo": true,
       "**/next-env.d.ts": true,
     },
+
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnPaste": false,
+    "editor.formatOnType": false,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "always",
+      "source.fixAll.eslint": "always",
+    },
+    "files.eol": "\n",
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "prettier.requireConfig": true,
+    "editor.tabSize": 2,
+    "editor.rulers": [120],
+    "breadcrumbs.enabled": true,
+    "editor.inlayHints.enabled": "on",
+    "eslint.validate": [
+      "javascript",
+      "javascriptreact",
+      "typescript",
+      "typescriptreact",
+    ],
+    "eslint.useFlatConfig": true,
+    "tailwindCSS.experimental.classRegex": [
+      ["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^'\"`]*)"],
+      ["cn\\(([^)]*)\\)", "(?:'|\"|`)([^'\"`]*)"],
+    ],
+    "cSpell.words": [
+      "httponly",
+      "sadd",
+      "sonarjs",
+      "srem",
+      "traceparent"
+    ],
   },
   "launch": {
     "version": "0.2.0",
