@@ -78,13 +78,13 @@ export async function executeRequest<T>(
         throw new HttpError(res.status, "INVALID_RESPONSE_FORMAT");
       }
 
-      const { data, error } = parsed.data;
+      const { error } = parsed.data;
 
       if (error) {
         throw new HttpError(res.status, error);
       }
 
-      return data as T;
+      return parsed.data as T;
     }
 
     const text = await res.text();

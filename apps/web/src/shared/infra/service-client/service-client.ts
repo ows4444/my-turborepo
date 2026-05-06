@@ -1,85 +1,78 @@
 import "server-only";
 
-import { headers } from "next/headers";
-
-import { getWebEnv } from "@repo/env";
 import { HttpError } from "@/shared/core/errors";
 import { mapToDomainError } from "@/shared/core/errors/error-mapper";
 import { normalizeError } from "@/shared/core/errors/normalize";
 import { apiLogger } from "@/shared/infra/logger/with-context.server";
 
-type ServiceName = "AUTH" | "API";
+import { refreshAccessToken } from "@/shared/server/auth/refresh-manager";
+import { RequestAuthContext } from "@/shared/server/auth/request-auth-context";
+import { rawServiceClient } from "./raw-service-client";
 
-function resolveServiceUrl(service: ServiceName) {
-  switch (service) {
-    case "AUTH":
-      return getWebEnv().AUTH_SERVICE_URL;
-    case "API":
-      return getWebEnv().API_SERVICE_URL;
-  }
-}
+export type ServiceName = "AUTH" | "API";
 
 export async function serviceClient<T>(
   service: ServiceName,
   path: string,
   options: RequestInit = {},
+  didRetry = false,
 ): Promise<{ data: T; headers: Headers; status: number; statusText: string }> {
   const start = Date.now();
 
+  const authContext = await RequestAuthContext.create();
+
+  if (didRetry) {
+    apiLogger.warn("SERVICE_CLIENT_RETRY_ATTEMPT", { service, path });
+  }
+
   try {
-    const headerStore = await headers();
+    /**
+     * First authenticated attempt
+     */
+    let response = await rawServiceClient<T>(
+      service,
+      path,
+      options,
+      authContext,
+    );
 
-    const cookie = headerStore.get("cookie");
+    /**
+     * ONLY retry once after refresh
+     */
 
-    const csrf = headerStore.get("x-csrf-token");
-
-    const traceId = headerStore.get("x-request-id");
-
-    const res = await fetch(`${resolveServiceUrl(service)}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers ?? {}),
-        ...(traceId ? { "x-request-id": traceId } : {}),
-        ...(csrf ? { "x-csrf-token": csrf } : {}),
-        ...(cookie ? { cookie: cookie } : {}),
-      },
-      signal: AbortSignal.timeout(10000), // 10 seconds timeout
-    });
-
-    const contentType = res.headers.get("content-type") ?? "";
-
-    if (!res.ok) {
-      apiLogger.error("SERVICE_ERROR", {
+    if (response.status === 401 && path !== "/auth/refresh" && !didRetry) {
+      apiLogger.info("ACCESS_TOKEN_REFRESH_REQUIRED", {
         service,
         path,
-        status: res.status,
-        duration: Date.now() - start,
       });
 
-      if (contentType.includes("application/json")) {
-        const json = await res.json().catch(() => null);
-        throw new HttpError(res.status, json?.message ?? "SERVICE_ERROR");
+      const refreshed = await refreshAccessToken(authContext);
+
+      if (!refreshed) {
+        throw new HttpError(401, "SESSION_REFRESH_FAILED");
       }
 
-      const text = await res.text();
-      throw new HttpError(res.status, text || "SERVICE_ERROR");
+      /**
+       * Retry original request once
+       */
+      response = await rawServiceClient<T>(service, path, options, authContext);
     }
 
-    let data: unknown;
-
-    if (contentType.includes("application/json")) {
-      data = await res.json();
-    } else {
-      data = await res.text();
+    /**
+     * Upstream failure normalization
+     */
+    if (response.status >= 400) {
+      throw new HttpError(
+        response.status,
+        typeof response.data === "object" &&
+          response.data &&
+          "error" in response.data
+          ? String(response.data.error)
+          : "SERVICE_ERROR",
+      );
     }
 
-    return {
-      data: data as T,
-      headers: res.headers,
-      status: res.status,
-      statusText: res.statusText,
-    };
+    return response;
   } catch (err) {
     apiLogger.error("SERVICE_FAILURE", {
       service,

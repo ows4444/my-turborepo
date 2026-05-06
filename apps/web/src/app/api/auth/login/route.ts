@@ -1,15 +1,21 @@
 import { headers } from "next/headers";
+import { cookies } from "next/headers";
 
 import { z } from "zod";
 
 export const runtime = "nodejs";
 
 import { serviceClient } from "@/shared/infra/service-client/service-client";
-import { createValidatedMutation, extractUpstreamError } from "@/shared/server/route/create-route";
+import {
+  createValidatedMutation,
+  extractUpstreamError,
+} from "@/shared/server/route/create-route";
 
 const loginSchema = z.object({
   identifier: z.union([z.email(), z.string().regex(/^9715\d{8}$/)], {
-    error: () => ({ message: "Must be a valid email or UAE phone number starting with 9715" }),
+    error: () => ({
+      message: "Must be a valid email or UAE phone number starting with 9715",
+    }),
   }),
   password: z.string().min(1),
 });
@@ -36,15 +42,15 @@ export const POST = createValidatedMutation(loginSchema, async (parsed) => {
     status: upstream.status,
     statusText: upstream.statusText,
   });
+  const raw = upstream.headers as unknown as {
+    raw?: () => Record<string, string[]>;
+  };
 
-  const raw = upstream.headers as unknown as { raw?: () => Record<string, string[]> };
   const cookies = raw?.raw?.()["set-cookie"];
 
   if (cookies) {
     for (const cookie of cookies) {
-      if (cookie.startsWith("refresh_token=")) {
-        res.headers.append("set-cookie", cookie);
-      }
+      res.headers.append("set-cookie", cookie);
     }
   }
 

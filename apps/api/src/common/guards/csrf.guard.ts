@@ -5,6 +5,8 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Request } from 'express';
+import crypto from 'crypto';
+import { getApiEnv } from '@repo/env';
 import { timingSafeEqual } from '../../utils/timing-safe-equal';
 
 @Injectable()
@@ -21,28 +23,40 @@ export class CsrfGuard implements CanActivate {
       throw new ForbiddenException('CSRF_MISSING');
     }
 
-    // 🔒 decode cookie payload
-    let parsed: { token: string } | null = null;
+    const secret = getApiEnv().CSRF_SECRET;
+
+    let payload: { token: string; iat: number; exp: number } | null = null;
+
     try {
       const raw = Buffer.from(cookie, 'base64').toString('utf-8');
-      const jsonPart = raw.split('.')[0];
+      const [json, signature] = raw.split('.');
 
-      if (!jsonPart) {
+      if (!json || !signature) {
         throw new ForbiddenException('CSRF_INVALID');
       }
 
-      parsed = JSON.parse(jsonPart);
+      const expected = crypto.createHmac('sha256', secret).update(json).digest('hex');
+
+      if (!timingSafeEqual(signature, expected)) {
+        throw new ForbiddenException('CSRF_INVALID_SIGNATURE');
+      }
+
+      payload = JSON.parse(json);
     } catch {
       throw new ForbiddenException('CSRF_INVALID');
     }
 
-    if (!parsed?.token) {
+    if (!payload?.token) {
       throw new ForbiddenException('CSRF_INVALID');
     }
 
-    const valid = timingSafeEqual(parsed.token, String(header));
+    const now = Date.now();
 
-    if (!valid) {
+    if (now > payload.exp) {
+      throw new ForbiddenException('CSRF_EXPIRED');
+    }
+
+    if (!timingSafeEqual(payload.token, String(header))) {
       throw new ForbiddenException('CSRF_MISMATCH');
     }
 

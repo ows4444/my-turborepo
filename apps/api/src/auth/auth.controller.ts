@@ -22,7 +22,11 @@ import {
 } from '@repo/schemas';
 import { CsrfGuard } from '../common/guards/csrf.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { getRefreshCookieConfig } from './constants/cookies';
+import {
+  getAccessCookieConfig,
+  getRefreshCookieConfig,
+} from './constants/cookies';
+import { getApiEnv } from '@repo/env';
 
 @Controller('auth')
 export class AuthController {
@@ -45,12 +49,13 @@ export class AuthController {
 
     res.cookie('refresh_token', tokens.refreshToken, getRefreshCookieConfig());
 
+    res.cookie('access_token', tokens.accessToken, getAccessCookieConfig());
+
     return {
       user: {
         id: user.id,
         full_name: user.email,
       },
-      accessToken: tokens.accessToken,
     };
   }
 
@@ -81,25 +86,33 @@ export class AuthController {
     const tokens = await this.authService.refreshFromToken(token, deviceId);
 
     res.cookie('refresh_token', tokens.refreshToken, getRefreshCookieConfig());
+    res.cookie('access_token', tokens.accessToken, getAccessCookieConfig());
 
-    return { accessToken: tokens.accessToken };
+    return { success: true };
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), CsrfGuard)
   @Post('logout')
-  @UseGuards(CsrfGuard)
   logout(
     @Req() req: { user: { userId: string; deviceId: string } },
     @Res({ passthrough: true }) res: Response,
   ) {
-    res.clearCookie('refresh_token', {
+
+    const cookieConfig = {
       path: '/',
-    });
+      httpOnly: true,
+      secure: getApiEnv().isProd,
+      sameSite: getApiEnv().isProd ? ('lax' as const) : ('strict' as const),
+    };
+
+    res.clearCookie('refresh_token', cookieConfig);
+
+    res.clearCookie('access_token', cookieConfig);
 
     return this.authService.logout(req.user.userId, req.user.deviceId);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), CsrfGuard)
   @Post('logout-all')
   logoutAll(@Req() req: { user: { userId: string } }) {
     return this.authService.logoutAll(req.user.userId);

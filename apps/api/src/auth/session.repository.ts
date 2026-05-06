@@ -23,25 +23,22 @@ export class SessionRepository {
     return this.revokeAll(userId);
   }
 
-  private key(jti: string) {
-    return `${PREFIX}:${jti}`;
+  private key(sessionId: string) {
+    return `${PREFIX}:${sessionId}`;
   }
 
   async save(session: Session) {
     const ttl = session.maxExpiresAt.getTime() - Date.now();
 
-    const key = this.key(session.currentJti);
+    const key = this.key(session.id);
 
     await this.redis.set(key, JSON.stringify(session), 'PX', ttl);
 
-    await this.redis.sadd(
-      `${USER_INDEX}:${session.userId}`,
-      session.currentJti,
-    );
+    await this.redis.sadd(`${USER_INDEX}:${session.userId}`, session.id);
 
     await this.redis.sadd(
       `${DEVICE_INDEX}:${session.userId}:${session.deviceId}`,
-      session.currentJti,
+      session.id,
     );
   }
 
@@ -59,52 +56,38 @@ export class SessionRepository {
   }
 
   async rotate(
-    session: Session,
-    data: {
-      newJti: string;
-      newRefreshTokenHash: string;
-    },
-  ) {
-    const oldJti = session.currentJti;
-    const oldKey = this.key(oldJti);
+    sessionId: string,
+    expectedVersion: number,
+    nextRefreshHash: string,
+  ): Promise<number> {
+    const session = await this.find(sessionId);
 
-    const ttl = session.maxExpiresAt.getTime() - Date.now();
-    if (ttl <= 0) {
-      throw new Error('Session expired during rotation');
+    if (!session) {
+      throw new Error('SESSION_NOT_FOUND');
     }
 
-    const updated: Session = {
-      ...session,
-      previousJti: oldJti,
-      currentJti: data.newJti,
-      refreshTokenHash: data.newRefreshTokenHash,
-      lastUsedAt: new Date(),
-    };
+    if (session.currentVersion !== expectedVersion) {
+      throw new Error('STALE_REFRESH');
+    }
 
-    const newKey = this.key(data.newJti);
+    const nextVersion = expectedVersion + 1;
 
-    const pipeline = this.redis.pipeline();
+    session.currentVersion = nextVersion;
 
-    // remove old token
-    pipeline.del(oldKey);
+    session.refreshTokenHash = nextRefreshHash;
 
-    // write new token
-    pipeline.set(newKey, JSON.stringify(updated), 'PX', ttl);
+    session.lastUsedAt = new Date();
 
-    // update indexes
-    pipeline.srem(`${USER_INDEX}:${session.userId}`, oldJti);
-    pipeline.sadd(`${USER_INDEX}:${session.userId}`, data.newJti);
+    const ttl = session.maxExpiresAt.getTime() - Date.now();
 
-    pipeline.srem(
-      `${DEVICE_INDEX}:${session.userId}:${session.deviceId}`,
-      oldJti,
-    );
-    pipeline.sadd(
-      `${DEVICE_INDEX}:${session.userId}:${session.deviceId}`,
-      data.newJti,
+    await this.redis.set(
+      this.key(session.id),
+      JSON.stringify(session),
+      'PX',
+      ttl,
     );
 
-    await pipeline.exec();
+    return nextVersion;
   }
 
   async find(jti: string): Promise<Session | null> {
@@ -122,6 +105,7 @@ export class SessionRepository {
     s.lastUsedAt = new Date(s.lastUsedAt);
     s.expiresAt = new Date(s.expiresAt);
     s.maxExpiresAt = new Date(s.maxExpiresAt);
+
     if (s.revokedAt) s.revokedAt = new Date(s.revokedAt);
 
     return s;
@@ -150,13 +134,13 @@ export class SessionRepository {
       const ttl = session.maxExpiresAt.getTime() - Date.now();
       if (ttl > 0) {
         update.set(
-          this.key(session.currentJti),
+          this.key(session.id),
           JSON.stringify(session),
           'PX',
           ttl,
         );
       } else {
-        update.del(this.key(session.currentJti));
+        update.del(this.key(session.id));
       }
     }
 
@@ -193,17 +177,17 @@ export class SessionRepository {
 
       if (ttl > 0) {
         update.set(
-          this.key(session.currentJti),
+          this.key(session.id),
           JSON.stringify(session),
           'PX',
           ttl,
         );
       } else {
-        update.del(this.key(session.currentJti));
+        update.del(this.key(session.id));
       }
 
-      update.srem(`${USER_INDEX}:${userId}`, session.currentJti);
-      update.srem(`${DEVICE_INDEX}:${userId}:${deviceId}`, session.currentJti);
+      update.srem(`${USER_INDEX}:${userId}`, session.id);
+      update.srem(`${DEVICE_INDEX}:${userId}:${deviceId}`, session.id);
     }
 
     await update.exec();
@@ -220,13 +204,13 @@ export class SessionRepository {
 
     if (ttl > 0) {
       await this.redis.set(
-        this.key(session.currentJti),
+        this.key(session.id),
         JSON.stringify(updated),
         'PX',
         ttl,
       );
     } else {
-      await this.redis.del(this.key(session.currentJti));
+      await this.redis.del(this.key(session.id));
     }
   }
 

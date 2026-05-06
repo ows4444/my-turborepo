@@ -1,10 +1,11 @@
 export type Session = {
   id: string;
+
   userId: string;
   deviceId: string;
 
-  currentJti: string;
-  previousJti?: string;
+  currentVersion: number;
+
 
   refreshTokenHash: string;
 

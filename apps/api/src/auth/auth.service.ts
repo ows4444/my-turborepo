@@ -32,9 +32,14 @@ export class AuthService {
     };
   }
 
-  private async signAccessToken(userId: string, deviceId: string, jti: string) {
+  private async signAccessToken(
+    userId: string,
+    sessionId: string,
+    deviceId: string,
+    version: number,
+  ) {
     return this.jwtService.signAsync(
-      { sub: userId, deviceId, jti },
+      { sub: userId, sessionId, deviceId, version },
       {
         secret: getApiEnv().ACCESS_TOKEN_SECRET,
         expiresIn: getApiEnv().ACCESS_TOKEN_TTL as StringValue,
@@ -44,11 +49,12 @@ export class AuthService {
 
   private async signRefreshToken(
     userId: string,
+    sessionId: string,
     deviceId: string,
-    jti: string,
+    version: number,
   ) {
     return this.jwtService.signAsync(
-      { sub: userId, deviceId, jti },
+      { sub: userId, sessionId, deviceId, version },
       {
         secret: this.config.refreshTokenSecret,
         expiresIn: this.config.refreshTokenTtl,
@@ -132,17 +138,30 @@ export class AuthService {
     deviceId: string,
     meta?: DeviceMeta,
   ) {
-    const jti = uuid();
+    const sessionId = uuid();
 
-    const refreshToken = await this.signRefreshToken(userId, deviceId, jti);
-    const accessToken = await this.signAccessToken(userId, deviceId, jti);
+    const version = 1;
+
+    const refreshToken = await this.signRefreshToken(
+      userId,
+      sessionId,
+      deviceId,
+      version,
+    );
+
+    const accessToken = await this.signAccessToken(
+      userId,
+      sessionId,
+      deviceId,
+      version,
+    );
 
     const session: Session = {
-      id: uuid(),
+      id: sessionId,
       userId,
       deviceId,
 
-      currentJti: jti,
+      currentVersion: version,
 
       refreshTokenHash: createHash('sha256').update(refreshToken).digest('hex'),
 
@@ -178,11 +197,9 @@ export class AuthService {
     }
 
     return {
-      data: {
-        user: {
-          id: user.id,
-          full_name: user.email, // adjust later
-        },
+      user: {
+        id: user.id,
+        full_name: user.email,
       },
     };
   }
@@ -208,7 +225,12 @@ export class AuthService {
   }
 
   async refreshFromToken(token: string, deviceId: string) {
-    let payload: { sub: string; jti: string; deviceId: string };
+    let payload: {
+      sub: string;
+      sessionId: string;
+      deviceId: string;
+      version: number;
+    };
 
     try {
       payload = await this.jwtService.verifyAsync(token, {
@@ -218,9 +240,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const { sub: userId, jti, deviceId: tokenDeviceId } = payload;
+    const {
+      sub: userId,
+      sessionId,
+      version,
+      deviceId: tokenDeviceId,
+    } = payload;
 
-    const session = await this.sessionRepo.find(jti);
+    const session = await this.sessionRepo.find(sessionId);
     if (!session) throw new UnauthorizedException();
 
     if (session.revokedAt) throw new UnauthorizedException();
@@ -241,10 +268,8 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
-    if (session.currentJti !== jti) {
-      await this.sessionRepo.markCompromised(session);
-      await this.sessionRepo.revokeAll(userId);
-      throw new UnauthorizedException();
+    if (session.currentVersion !== version) {
+      throw new UnauthorizedException('STALE_REFRESH_TOKEN');
     }
 
     const hash = createHash('sha256').update(token).digest('hex');
@@ -256,21 +281,27 @@ export class AuthService {
     }
 
     // 🔁 ROTATE
-    const newJti = uuid();
+    const nextVersion = version + 1;
 
     const newRefreshToken = await this.signRefreshToken(
       userId,
+      session.id,
       deviceId,
-      newJti,
+      nextVersion,
     );
-    const newAccess = await this.signAccessToken(userId, deviceId, newJti);
 
-    await this.sessionRepo.rotate(session, {
-      newJti,
-      newRefreshTokenHash: createHash('sha256')
-        .update(newRefreshToken)
-        .digest('hex'),
-    });
+    const newAccess = await this.signAccessToken(
+      userId,
+      session.id,
+      deviceId,
+      nextVersion,
+    );
+
+    await this.sessionRepo.rotate(
+      session.id,
+      version,
+      createHash('sha256').update(newRefreshToken).digest('hex'),
+    );
 
     return {
       accessToken: newAccess,

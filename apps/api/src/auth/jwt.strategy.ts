@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { getApiEnv } from '@repo/env';
+import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-
 import { SessionRepository } from './session.repository';
 import { JwtPayload } from './types/jwt-payload';
 
@@ -10,22 +10,26 @@ import { JwtPayload } from './types/jwt-payload';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly sessionRepo: SessionRepository) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req: Request) => {
+          return req.cookies?.access_token ?? null;
+        },
+
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ]),
+
       secretOrKey: getApiEnv().ACCESS_TOKEN_SECRET,
+      algorithms: ['HS256'],
     });
   }
   async validate(payload: JwtPayload) {
-    const session = await this.sessionRepo.find(payload.jti);
+    const session = await this.sessionRepo.find(payload.sessionId);
 
     if (!session) throw new UnauthorizedException();
     if (session.revokedAt) throw new UnauthorizedException();
 
-    if (session.currentJti !== payload.jti) {
+    if (session.currentVersion !== payload.version) {
       throw new UnauthorizedException('Stale token');
-    }
-
-    if (session.expiresAt < new Date()) {
-      throw new UnauthorizedException('Session expired');
     }
 
     if (session.lastUsedAt < new Date(Date.now() - 1000 * 60 * 60 * 24)) {
@@ -40,7 +44,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException();
     }
 
-    void this.sessionRepo.touch(session.currentJti);
+   void this.sessionRepo.touch(session.id);
 
     return {
       userId: payload.sub,

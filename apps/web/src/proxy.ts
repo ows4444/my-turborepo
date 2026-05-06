@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { getWebEnv } from "@repo/env";
 import { buildCSP } from "@/shared/security/csp";
-import { generateCsrfToken } from "@/shared/security/csrf.server";
+import { generateCsrfToken, verifyCsrf } from "@/shared/security/csrf.server";
 
 export function proxy(req: NextRequest) {
   try {
@@ -13,7 +13,11 @@ export function proxy(req: NextRequest) {
     const lastSegment = pathname.split("/").pop();
     const isPublicFile = lastSegment?.includes(".") ?? false;
 
-    if (pathname.startsWith("/_next") || pathname === "/favicon.ico" || isPublicFile) {
+    if (
+      pathname.startsWith("/_next") ||
+      pathname === "/favicon.ico" ||
+      isPublicFile
+    ) {
       return NextResponse.next();
     }
 
@@ -36,7 +40,13 @@ export function proxy(req: NextRequest) {
 
     const csrfCookie = req.cookies.get("csrf")?.value;
 
-    if (!csrfCookie) {
+    const csrfValid = csrfCookie ? verifyCsrf(csrfCookie) : false;
+
+    // regenerate when:
+    // - missing
+    // - invalid
+    // - expired
+    if (!csrfValid) {
       const encoded = generateCsrfToken();
 
       response.cookies.set("csrf", encoded, {
@@ -44,6 +54,8 @@ export function proxy(req: NextRequest) {
         sameSite: "lax",
         secure: getWebEnv().NODE_ENV === "production",
         path: "/",
+        maxAge: 60 * 5,
+        priority: "high",
       });
     }
 
@@ -61,7 +73,7 @@ export function proxy(req: NextRequest) {
 
     response.headers.set("Content-Security-Policy", csp);
     response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
-    response.headers.set("Cross-Origin-Embedder-Policy", "require-corp");
+    response.headers.set("Cross-Origin-Embedder-Policy", "credentialless");
     response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
 
     return response;
@@ -71,5 +83,5 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

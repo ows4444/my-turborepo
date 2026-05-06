@@ -2,6 +2,7 @@ import { apiClient } from "@/shared/api/client";
 
 type LoginPayload = {
   identifier: string;
+  password: string;
 };
 
 type LoginResponse = {

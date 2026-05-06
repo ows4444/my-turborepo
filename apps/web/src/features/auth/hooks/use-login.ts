@@ -4,7 +4,7 @@ import { resolveAuthFlow } from "../model/auth.flow";
 export function useLoginHandler() {
   const mutation = useLogin();
 
-  async function login(data: { identifier: string }) {
+  async function login(data: { identifier: string; password: string }) {
     const res = await mutation.mutateAsync(data);
 
     const flow = resolveAuthFlow(res.meta);

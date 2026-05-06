@@ -12,7 +12,9 @@ import { emitNotification } from "@/shared/notifications/model/service";
 
 const schema = z.object({
   identifier: z.union([z.email(), z.string().regex(/^9715\d{8}$/)], {
-    error: () => ({ message: "Must be a valid email or UAE phone number starting with 9715" }),
+    error: () => ({
+      message: "Must be a valid email or UAE phone number starting with 9715",
+    }),
   }),
   password: z.string().min(1),
 });
@@ -66,12 +68,18 @@ export default function LoginPage() {
             <input
               {...register("identifier")}
               className={`rounded-base border px-3 py-2 text-sm transition outline-none ${
-                errors.identifier ? "border-danger" : "border-base focus:border-primary"
+                errors.identifier
+                  ? "border-danger"
+                  : "border-base focus:border-primary"
               }`}
               placeholder="Enter your email or UAE phone number"
             />
 
-            {errors.identifier && <span className="text-danger text-xs">{errors.identifier.message}</span>}
+            {errors.identifier && (
+              <span className="text-danger text-xs">
+                {errors.identifier.message}
+              </span>
+            )}
           </div>
 
           {/* Password */}
@@ -80,13 +88,21 @@ export default function LoginPage() {
 
             <input
               {...register("password")}
+              type="password"
+              autoComplete="current-password"
               className={`rounded-base border px-3 py-2 text-sm transition outline-none ${
-                errors.password ? "border-danger" : "border-base focus:border-primary"
+                errors.password
+                  ? "border-danger"
+                  : "border-base focus:border-primary"
               }`}
               placeholder="Enter your password"
             />
 
-            {errors.password && <span className="text-danger text-xs">{errors.password.message}</span>}
+            {errors.password && (
+              <span className="text-danger text-xs">
+                {errors.password.message}
+              </span>
+            )}
           </div>
 
           {/* Submit */}

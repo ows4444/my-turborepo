@@ -1,5 +1,9 @@
 export type JwtPayload = {
   sub: string;
+
+  sessionId: string;
+
   deviceId: string;
-  jti: string;
+
+  version: number;
 };

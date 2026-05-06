@@ -48,7 +48,7 @@ export function generateCsrfToken() {
   const payload: CsrfPayload = {
     token: crypto.randomBytes(32).toString("hex"),
     iat: now,
-    exp: now + 1000 * 60 * 5,
+    exp: now + 1000 * 60 * 60,
   };
 
   return encode(payload);
